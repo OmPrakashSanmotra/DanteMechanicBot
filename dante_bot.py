@@ -3,11 +3,24 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from openai import OpenAI
+import google.generativeai as genai
 from supabase import create_client
 
-# 1. Initialize Clients
-openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# 1. Initialize Gemini & Supabase Clients
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+generation_config = {
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 1024,
+}
+# Using Gemini Flash for fast & smart responses
+gemini_model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    generation_config=generation_config,
+    system_instruction="You are Dante, an expert Indian two-wheeler mechanic AI assistant (Ustad Mechanic style, Hinglish expert, specializing in Hero Splendor, HF Deluxe, Honda Activa, Bajaj Pulsar, EV diagnostics, wiring, sensors, and ECU troubleshooting)."
+)
+
 supabase = create_client(
     os.environ.get("SUPABASE_URL"),
     os.environ.get("SUPABASE_KEY")
@@ -27,16 +40,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Received query: {user_query}")
     
     try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are Dante, an expert Indian two-wheeler mechanic AI assistant (Ustad Mechanic style, Hinglish expert, specializing in Hero, Honda, Bajaj, TVS, EV diagnostics, wiring, sensors, and ECU troubleshooting)."},
-                {"role": "user", "content": user_query}
-            ]
-        )
-        reply_text = response.choices[0].message.content
+        # Generate response using Gemini API
+        response = gemini_model.generate_content(user_query)
+        reply_text = response.text
     except Exception as e:
-        reply_text = f"Bhai, error aa gaya OpenAI se: {str(e)}"
+        reply_text = f"Bhai, error aa gaya Gemini se: {str(e)}"
 
     await update.message.reply_text(reply_text)
 
@@ -45,7 +53,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Dante Mechanic Bot is running 24/7!")
+        self.wfile.write(b"Dante Mechanic Bot is running 24/7 with Gemini API!")
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
@@ -58,7 +66,7 @@ if __name__ == "__main__":
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
     
-    # Telegram Bot ko Main Thread par chalao (asyncio signal handlers ke liye)
+    # Telegram Bot ko Main Thread par chalao
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         print("Error: TELEGRAM_BOT_TOKEN missing!")
@@ -69,5 +77,5 @@ if __name__ == "__main__":
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Dante Bot is starting polling on Main Thread...")
+    print("Dante Bot is starting polling with Gemini on Main Thread...")
     application.run_polling()
