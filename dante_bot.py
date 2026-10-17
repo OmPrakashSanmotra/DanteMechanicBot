@@ -6,8 +6,16 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from groq import Groq
 from supabase import create_client
 
-# 1. Initialize Groq & Supabase Clients
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+print("Initializing Dante Bot Script...")
+
+# 1. Initialize Clients
+groq_api_key = os.environ.get("GROQ_API_KEY")
+telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+
+print(f"GROQ_API_KEY present: {bool(groq_api_key)}")
+print(f"TELEGRAM_BOT_TOKEN present: {bool(telegram_token)}")
+
+groq_client = Groq(api_key=groq_api_key)
 supabase = create_client(
     os.environ.get("SUPABASE_URL"),
     os.environ.get("SUPABASE_KEY")
@@ -16,6 +24,7 @@ supabase = create_client(
 # 2. Telegram Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
+    print(f"Received /start command from {user_name}")
     welcome_text = (
         f"Ram Ram bhai {user_name}! 🙏 Main **Dante**, aapka Ustad Mechanic AI Companion hoon.\n\n"
         "Batao, kis bike/scooter mein lafda hai? Splendor ka current check karna hai, CDI unit ki wiring test karni hai, ya koi DTC code scan karna hai? Seedha poochho!"
@@ -24,9 +33,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text
-    print(f"Received query: {user_query}")
+    print(f"--> Received text message: {user_query}")
     
     try:
+        print("Calling Groq API...")
         response = groq_client.chat.completions.create(
             model="llama3-70b-8192",
             messages=[
@@ -42,10 +52,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             temperature=0.7
         )
         reply_text = response.choices[0].message.content
+        print(f"Groq Response generated successfully. Length: {len(reply_text)}")
     except Exception as e:
         reply_text = f"Bhai, error aa gaya Groq se: {str(e)}"
+        print(f"ERROR in Groq API: {str(e)}")
 
+    print("Sending reply back to Telegram...")
     await update.message.reply_text(reply_text)
+    print("Reply sent successfully!")
 
 # 3. Render HTTP Health Check Server
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -65,23 +79,23 @@ def run_server():
 
 # 4. Telegram Bot Runner (Background Thread)
 def run_telegram_bot():
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
+    if not telegram_token:
         print("Error: TELEGRAM_BOT_TOKEN missing!")
         return
     
-    application = Application.builder().token(token).build()
+    print("Building Telegram Application...")
+    application = Application.builder().token(telegram_token).build()
     
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Dante Bot is starting polling in background thread...")
-    application.run_polling()
+    print("Starting Telegram Bot Polling...")
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    # Telegram Bot ko background thread mein chalao
+    print("Starting Background Telegram Bot Thread...")
     bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
     bot_thread.start()
     
-    # HTTP Server ko Main Thread par chalao taaki Render ka port scan instant pass ho jaye!
+    print("Starting Main Thread HTTP Server...")
     run_server()
