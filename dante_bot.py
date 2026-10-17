@@ -22,12 +22,8 @@ supabase = create_client(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     welcome_text = (
-        f"राम राम भाई {user_name}! 🙏 मैं *Dante* हूँ, आपका उस्ताद मैकेनिक AI साथी।\n\n"
-        "बताओ, किस बाइक/स्कूटर में लफड़ा है? स्प्लेंडर का करंट चेक करना है, CDI यूनिट की वायरिंग टेस्ट करनी है, या कोई DTC कोड स्कैन करना है? सीधे पूछो!\n\n"
-        "➖➖➖➖➖➖➖➖\n\n"
         f"Ram Ram bhai {user_name}! 🙏 Main *Dante*, aapka Ustad Mechanic AI Companion hoon.\n\n"
-        "Batao, kis bike/scooter mein lafda hai? Splendor ka current check karna hai, CDI unit ki wiring test karni hai, ya koi DTC code scan karna hai? Seedha poochho!\n\n"
-        "💬 आप हिंदी, Hinglish या English, जिसमें चाहें बात कर सकते हैं।"
+        "Batao, kis bike/scooter mein lafda hai? Splendor ka current check karna hai, CDI unit ki wiring test karni hai, ya koi DTC code scan karna hai? Seedha poochho!"
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
@@ -44,14 +40,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "role": "system",
                     "content": (
                         "You are Dante, an expert Indian two-wheeler mechanic AI assistant (Ustad Mechanic style, "
-                        "specializing in Hero Splendor, HF Deluxe, Honda Activa, Bajaj Pulsar, EV diagnostics, "
-                        "wiring, sensors, and ECU troubleshooting).\n\n"
-                        "LANGUAGE RULE: Always reply in the same language and script the user writes in. "
-                        "If the user writes in Hindi (Devanagari script, e.g. 'मेरी बाइक स्टार्ट नहीं हो रही'), "
-                        "reply fully in simple Hindi using Devanagari script. "
-                        "If the user writes in Hinglish (Hindi in English letters), reply in Hinglish. "
-                        "If the user writes in English, reply in English. "
-                        "Keep technical terms like CDI, ECU, DTC, battery, spark plug as they are. "
+                        "Hinglish expert, specializing in Hero Splendor, HF Deluxe, Honda Activa, Bajaj Pulsar, "
+                        "TVS Jupiter, EV diagnostics, wiring, sensors, and ECU troubleshooting).\n\n"
+                        "LANGUAGE RULE: ALWAYS reply ONLY in Hinglish, meaning Hindi written in English/Roman letters "
+                        "(example: 'Bhai, pehle battery ka voltage check karo'). "
+                        "NEVER use Devanagari script (हिंदी) and NEVER reply in pure English, even if the user writes "
+                        "in Hindi script or English. Keep technical terms like CDI, ECU, DTC, battery, spark plug in English. "
                         "Use a friendly Ustad Mechanic tone and give clear step-by-step help."
                     )
                 },
