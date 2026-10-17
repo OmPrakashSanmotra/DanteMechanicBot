@@ -1,10 +1,15 @@
 import os
+import logging
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from groq import Groq
 from supabase import create_client
+
+# Enable logging to see what's happening
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 print("Starting Dante Bot...")
 
@@ -30,7 +35,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # <-- Active and working model
+            model="llama-3.1-8b-instant",
             messages=[
                 {
                     "role": "system", 
@@ -50,6 +55,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(reply_text)
     print("Reply sent successfully to Telegram!")
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    """Log errors caused by Updates."""
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
 # 3. Dummy HTTP Server for Render Port Binding
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -71,11 +80,18 @@ if __name__ == "__main__":
     if not token:
         exit(1)
     
+    # HTTP Server background thread mein
     server_thread = threading.Thread(target=run_http_server, daemon=True)
     server_thread.start()
     
+    # Telegram Bot Application
     application = Application.builder().token(token).build()
+    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    application.run_polling()
+    # Register error handler so polling doesn't crash silently
+    application.add_error_handler(error_handler)
+    
+    print("Starting Telegram Polling on Main Thread...")
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
