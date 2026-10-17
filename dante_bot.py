@@ -7,20 +7,17 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from groq import Groq
 from supabase import create_client
 
-# Enable logging to see what's happening
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 print("Starting Dante Bot...")
 
-# 1. Initialize Clients
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 supabase = create_client(
     os.environ.get("SUPABASE_URL"),
     os.environ.get("SUPABASE_KEY")
 )
 
-# 2. Telegram Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     welcome_text = (
@@ -34,8 +31,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Received query: {user_query}")
     
     try:
-       response = groq_client.chat.completions.create(
-            model="llama3-8b-8192",  # <-- Yeh wala model 100% stable hai
+        response = groq_client.chat.completions.create(
+            model="llama3-8b-8192",
             messages=[
                 {
                     "role": "system", 
@@ -57,10 +54,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Reply sent successfully to Telegram!")
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    """Log errors caused by Updates."""
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
-# 3. Dummy HTTP Server for Render Port Binding
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -80,17 +75,13 @@ if __name__ == "__main__":
     if not token:
         exit(1)
     
-    # HTTP Server background thread mein
     server_thread = threading.Thread(target=run_http_server, daemon=True)
     server_thread.start()
     
-    # Telegram Bot Application
     application = Application.builder().token(token).build()
     
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Register error handler so polling doesn't crash silently
     application.add_error_handler(error_handler)
     
     print("Starting Telegram Polling on Main Thread...")
