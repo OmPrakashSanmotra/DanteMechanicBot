@@ -31,7 +31,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         response = groq_client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",  # <-- Yahan updated active model daal diya hai!
             messages=[
                 {
                     "role": "system", 
@@ -46,7 +46,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         reply_text = response.choices[0].message.content
     except Exception as e:
-        reply_text = f"Bhai, error aa gaya Groq से: {str(e)}"
+        reply_text = f"Bhai, error aa gaya Groq se: {str(e)}"
         print(f"Groq Error: {str(e)}")
 
     await update.message.reply_text(reply_text)
@@ -60,7 +60,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Dante Bot is alive!")
     
     def log_message(self, format, *args):
-        return  # Suppress HTTP access logs to keep console clean
+        return  # Suppress HTTP access logs
 
 def run_http_server():
     port = int(os.environ.get("PORT", 10000))
@@ -74,11 +74,11 @@ if __name__ == "__main__":
         print("Error: TELEGRAM_BOT_TOKEN missing!")
         exit(1)
     
-    # HTTP Server ko background thread mein daal do taaki Render ka port check khush rahe
+    # HTTP Server background thread mein
     server_thread = threading.Thread(target=run_http_server, daemon=True)
     server_thread.start()
     
-    # Telegram Bot Polling ko Main Thread par chalao
+    # Telegram Bot Polling Main Thread par
     application = Application.builder().token(token).build()
     
     application.add_handler(CommandHandler("start", start))
