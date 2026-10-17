@@ -26,7 +26,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text
     print(f"Received query: {user_query}")
     
-    # Simple response or OpenAI/Supabase integration
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
@@ -37,11 +36,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         reply_text = response.choices[0].message.content
     except Exception as e:
-        reply_text = f"Bhai, error aa gaya OpenAI se: {str_ := str(e)}"
+        reply_text = f"Bhai, error aa gaya OpenAI se: {str(e)}"
 
     await update.message.reply_text(reply_text)
 
-# 3. Render HTTP Health Check Server (Main Thread)
+# 3. Render HTTP Health Check Server (Background Thread)
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -51,28 +50,24 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 def run_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    print(f"Starting HTTP server on port {port}...")
     server.serve_forever()
 
-# 4. Telegram Bot Runner (Background Thread)
-def run_telegram_bot():
+if __name__ == "__main__":
+    # HTTP Server ko background thread mein chalao (Render port binding ke liye)
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
+    
+    # Telegram Bot ko Main Thread par chalao (asyncio signal handlers ke liye)
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         print("Error: TELEGRAM_BOT_TOKEN missing!")
-        return
+        exit(1)
     
     application = Application.builder().token(token).build()
     
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Dante Bot is starting polling...")
+    print("Dante Bot is starting polling on Main Thread...")
     application.run_polling()
-
-if __name__ == "__main__":
-    # Telegram Bot background thread mein
-    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
-    bot_thread.start()
-    
-    # HTTP Server main thread par (Render port binding ke liye)
-    print(f"Starting HTTP server on port {os.environ.get('PORT', 10000)}...")
-    run_server()
