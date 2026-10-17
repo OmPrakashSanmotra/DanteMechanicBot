@@ -31,8 +31,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Received query: {user_query}")
     
     try:
-        response = groq_client.chat.completions.create(
-            model="llama3-8b-8192",
+       response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",  # <-- Yeh wala naya active model hai
             messages=[
                 {
                     "role": "system", 
