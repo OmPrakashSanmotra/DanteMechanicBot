@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from groq import Groq
 from supabase import create_client
 
-# 1. Initialize Groq & Supabase Clients properly at the top level
+# 1. Initialize Groq & Supabase Clients
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 supabase = create_client(
     os.environ.get("SUPABASE_URL"),
@@ -27,9 +27,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Received query: {user_query}")
     
     try:
-        # Generate response using Groq (Fast & Free Llama 3 model)
         response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama3-70b-8192",
             messages=[
                 {
                     "role": "system", 
@@ -48,34 +47,41 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(reply_text)
 
-# 3. Render HTTP Health Check Server (Background Thread)
+# 3. Render HTTP Health Check Server
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Dante Mechanic Bot is running 24/7 with Groq API!")
+        self.wfile.write(b"Dante Mechanic Bot is running 24/7 with Groq!")
+    
+    def log_message(self, format, *args):
+        return  # Keep logs clean
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    print(f"Starting HTTP server on port {port}...")
+    print(f"HTTP server successfully bound to port {port}")
     server.serve_forever()
 
-if __name__ == "__main__":
-    # HTTP Server ko background thread mein chalao (Render port binding ke liye)
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-    
-    # Telegram Bot ko Main Thread par chalao
+# 4. Telegram Bot Runner (Background Thread)
+def run_telegram_bot():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         print("Error: TELEGRAM_BOT_TOKEN missing!")
-        exit(1)
+        return
     
     application = Application.builder().token(token).build()
     
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Dante Bot is starting polling with Groq on Main Thread...")
+    print("Dante Bot is starting polling in background thread...")
     application.run_polling()
+
+if __name__ == "__main__":
+    # Telegram Bot ko background thread mein chalao
+    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+    bot_thread.start()
+    
+    # HTTP Server ko Main Thread par chalao taaki Render ka port scan instant pass ho jaye!
+    run_server()
