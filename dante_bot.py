@@ -18,7 +18,6 @@ supabase = create_client(
 # 2. Telegram Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
-    print(f"Received /start from {user_name}")
     welcome_text = (
         f"Ram Ram bhai {user_name}! 🙏 Main **Dante**, aapka Ustad Mechanic AI Companion hoon.\n\n"
         "Batao, kis bike/scooter mein lafda hai? Splendor ka current check karna hai, CDI unit ki wiring test karni hai, ya koi DTC code scan karna hai? Seedha poochho!"
@@ -31,7 +30,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # <-- Yahan updated active model daal diya hai!
+            model="llama-3.1-8b-instant",  # <-- Active and working model
             messages=[
                 {
                     "role": "system", 
@@ -60,29 +59,23 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Dante Bot is alive!")
     
     def log_message(self, format, *args):
-        return  # Suppress HTTP access logs
+        return
 
 def run_http_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    print(f"HTTP server started on port {port}")
     server.serve_forever()
 
 if __name__ == "__main__":
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
-        print("Error: TELEGRAM_BOT_TOKEN missing!")
         exit(1)
     
-    # HTTP Server background thread mein
     server_thread = threading.Thread(target=run_http_server, daemon=True)
     server_thread.start()
     
-    # Telegram Bot Polling Main Thread par
     application = Application.builder().token(token).build()
-    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Starting Telegram Polling on Main Thread...")
     application.run_polling()
