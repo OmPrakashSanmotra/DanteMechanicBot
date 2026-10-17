@@ -22,8 +22,12 @@ supabase = create_client(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     welcome_text = (
+        f"राम राम भाई {user_name}! 🙏 मैं *Dante* हूँ, आपका उस्ताद मैकेनिक AI साथी।\n\n"
+        "बताओ, किस बाइक/स्कूटर में लफड़ा है? स्प्लेंडर का करंट चेक करना है, CDI यूनिट की वायरिंग टेस्ट करनी है, या कोई DTC कोड स्कैन करना है? सीधे पूछो!\n\n"
+        "➖➖➖➖➖➖➖➖\n\n"
         f"Ram Ram bhai {user_name}! 🙏 Main *Dante*, aapka Ustad Mechanic AI Companion hoon.\n\n"
-        "Batao, kis bike/scooter mein lafda hai? Splendor ka current check karna hai, CDI unit ki wiring test karni hai, ya koi DTC code scan karna hai? Seedha poochho!"
+        "Batao, kis bike/scooter mein lafda hai? Splendor ka current check karna hai, CDI unit ki wiring test karni hai, ya koi DTC code scan karna hai? Seedha poochho!\n\n"
+        "💬 आप हिंदी, Hinglish या English, जिसमें चाहें बात कर सकते हैं।"
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
