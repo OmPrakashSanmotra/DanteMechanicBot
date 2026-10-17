@@ -3,30 +3,50 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import google.generativeai as genai
+import requests
 from supabase import create_client
 
-# 1. Initialize Gemini & Supabase Clients
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-generation_config = {
-    "temperature": 0.7,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 1024,
-}
-# Using Gemini Flash for fast & smart responses
-gemini_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    generation_config=generation_config,
-    system_instruction="You are Dante, an expert Indian two-wheeler mechanic AI assistant (Ustad Mechanic style, Hinglish expert, specializing in Hero Splendor, HF Deluxe, Honda Activa, Bajaj Pulsar, EV diagnostics, wiring, sensors, and ECU troubleshooting)."
-)
-
+# Initialize Supabase
 supabase = create_client(
     os.environ.get("SUPABASE_URL"),
     os.environ.get("SUPABASE_KEY")
 )
 
-# 2. Telegram Handlers
+# Gemini REST API function (Supports GCP AQ. tokens)
+def generate_gemini_response(prompt: str) -> str:
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return "Bhai, GEMINI_API_KEY missing hai Render par!"
+    
+    # Vertex AI / Generative Language API endpoint
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}" if api_key.startswith("AQ.") else f"key={api_key}"
+    }
+    
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": f"You are Dante, an expert Indian two-wheeler mechanic AI assistant (Ustad Mechanic style, Hinglish expert, specializing in Hero Splendor, HF Deluxe, Honda Activa, Bajaj Pulsar, EV diagnostics, wiring, sensors, and ECU troubleshooting). User query: {prompt}"}
+                ]
+            }
+        ]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            res_data = response.json()
+            return res_data["candidates"][0]["content"]["parts"][0]["text"]
+        else:
+            return f"Bhai, API Error ({response.status_code}): {response.text}"
+    except Exception as e:
+        return f"Bhai, connection error aa gaya: {str(e)}"
+
+# Telegram Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     welcome_text = (
@@ -39,21 +59,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text
     print(f"Received query: {user_query}")
     
-    try:
-        # Generate response using Gemini API
-        response = gemini_model.generate_content(user_query)
-        reply_text = response.text
-    except Exception as e:
-        reply_text = f"Bhai, error aa gaya Gemini se: {str(e)}"
-
+    reply_text = generate_gemini_response(user_query)
     await update.message.reply_text(reply_text)
 
-# 3. Render HTTP Health Check Server (Background Thread)
+# Render HTTP Health Check Server (Background Thread)
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Dante Mechanic Bot is running 24/7 with Gemini API!")
+        self.wfile.write(b"Dante Mechanic Bot is running 24/7 with Gemini REST API!")
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
@@ -62,7 +76,7 @@ def run_server():
     server.serve_forever()
 
 if __name__ == "__main__":
-    # HTTP Server ko background thread mein chalao (Render port binding ke liye)
+    # HTTP Server ko background thread mein chalao
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
     
@@ -77,5 +91,5 @@ if __name__ == "__main__":
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Dante Bot is starting polling with Gemini on Main Thread...")
+    print("Dante Bot is starting polling with Gemini REST on Main Thread...")
     application.run_polling()
