@@ -6,16 +6,10 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from groq import Groq
 from supabase import create_client
 
-print("Initializing Dante Bot Script...")
+print("Starting Dante Bot...")
 
 # 1. Initialize Clients
-groq_api_key = os.environ.get("GROQ_API_KEY")
-telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-
-print(f"GROQ_API_KEY present: {bool(groq_api_key)}")
-print(f"TELEGRAM_BOT_TOKEN present: {bool(telegram_token)}")
-
-groq_client = Groq(api_key=groq_api_key)
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 supabase = create_client(
     os.environ.get("SUPABASE_URL"),
     os.environ.get("SUPABASE_KEY")
@@ -24,7 +18,7 @@ supabase = create_client(
 # 2. Telegram Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
-    print(f"Received /start command from {user_name}")
+    print(f"Received /start from {user_name}")
     welcome_text = (
         f"Ram Ram bhai {user_name}! 🙏 Main **Dante**, aapka Ustad Mechanic AI Companion hoon.\n\n"
         "Batao, kis bike/scooter mein lafda hai? Splendor ka current check karna hai, CDI unit ki wiring test karni hai, ya koi DTC code scan karna hai? Seedha poochho!"
@@ -33,10 +27,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text
-    print(f"--> Received text message: {user_query}")
+    print(f"Received query: {user_query}")
     
     try:
-        print("Calling Groq API...")
         response = groq_client.chat.completions.create(
             model="llama3-70b-8192",
             messages=[
@@ -52,50 +45,44 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             temperature=0.7
         )
         reply_text = response.choices[0].message.content
-        print(f"Groq Response generated successfully. Length: {len(reply_text)}")
     except Exception as e:
-        reply_text = f"Bhai, error aa gaya Groq se: {str(e)}"
-        print(f"ERROR in Groq API: {str(e)}")
+        reply_text = f"Bhai, error aa gaya Groq से: {str(e)}"
+        print(f"Groq Error: {str(e)}")
 
-    print("Sending reply back to Telegram...")
     await update.message.reply_text(reply_text)
-    print("Reply sent successfully!")
+    print("Reply sent successfully to Telegram!")
 
-# 3. Render HTTP Health Check Server
+# 3. Dummy HTTP Server for Render Port Binding
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Dante Mechanic Bot is running 24/7 with Groq!")
+        self.wfile.write(b"Dante Bot is alive!")
     
     def log_message(self, format, *args):
-        return  # Keep logs clean
+        return  # Suppress HTTP access logs to keep console clean
 
-def run_server():
+def run_http_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    print(f"HTTP server successfully bound to port {port}")
+    print(f"HTTP server started on port {port}")
     server.serve_forever()
 
-# 4. Telegram Bot Runner (Background Thread)
-def run_telegram_bot():
-    if not telegram_token:
+if __name__ == "__main__":
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if not token:
         print("Error: TELEGRAM_BOT_TOKEN missing!")
-        return
+        exit(1)
     
-    print("Building Telegram Application...")
-    application = Application.builder().token(telegram_token).build()
+    # HTTP Server ko background thread mein daal do taaki Render ka port check khush rahe
+    server_thread = threading.Thread(target=run_http_server, daemon=True)
+    server_thread.start()
+    
+    # Telegram Bot Polling ko Main Thread par chalao
+    application = Application.builder().token(token).build()
     
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Starting Telegram Bot Polling...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == "__main__":
-    print("Starting Background Telegram Bot Thread...")
-    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
-    bot_thread.start()
-    
-    print("Starting Main Thread HTTP Server...")
-    run_server()
+    print("Starting Telegram Polling on Main Thread...")
+    application.run_polling()
