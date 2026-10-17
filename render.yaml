@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: dante-mechanic-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python dante_bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
